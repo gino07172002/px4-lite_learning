@@ -1,0 +1,36 @@
+# Build artifacts
+build/
+bin/
+out/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.ninja*
+.ninja_*
+
+# Binary and object files
+*.exe
+*.obj
+*.o
+*.a
+*.lib
+*.dll
+*.so
+*.dylib
+
+# IDE and editors
+.vscode/
+.vs/
+.idea/
+*.swp
+*~
+
+# Runtime outputs and logs
+flight.csv
+attitude_response.png
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
