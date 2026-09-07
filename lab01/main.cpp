@@ -147,8 +147,15 @@ int main()
     std::cout<<" hi "<<std::endl;
     return EXIT_SUCCESS;
 }
+/*
+[使用者提問]:
+build的期間
+我把binary清掉你重編可以查到問題嗎
+還是當掉
 
-
+[其他備忘/筆記]:
+接下來你要在頁面上把每個協議都串過,並且確實看到前端有相關的串接欄位可供設定,且盡量讓有限的設定是以下拉選單呈現而不是讓使用者自己填(ex: opcua的id其形態是有限的(string,數字等)),然後開始review並呼叫codex luna max model進行review,
+*/
 /*
 [執行結果紀錄 / Log]:
  sub has new data! 

@@ -3,6 +3,7 @@
 #include <queue>
 #include <mutex>
 #include <atomic>
+#include <condition_variable>
 using namespace std;
 
 std::queue<int> tasks;
@@ -16,8 +17,11 @@ class SimpleWorkQueue {
 public:
     ~SimpleWorkQueue()
     {
-        
-        running=false;
+        {
+            std::unique_lock<std::mutex> lock(_mutex);
+            running=false;
+        }
+        _cv.notify_all();
         if(_worker.joinable())
         {
             _worker.join();
@@ -28,6 +32,7 @@ public:
     {
         std::unique_lock<std::mutex> lock(_mutex);
         _tasks.push(taskId);
+        _cv.notify_one();
     }
     void start()
     {
@@ -50,6 +55,8 @@ private:
             int currentTask=0;
             {
                 std::unique_lock<std::mutex> lock(_mutex);
+                
+                _cv.wait(lock,[this](){return !_tasks.empty() || !running;});
                 if(!_tasks.empty())
                 {
                     currentTask=_tasks.front();
@@ -59,11 +66,12 @@ private:
                 }
             }
             
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+           
         }
     }
     std::mutex _mutex;
     std::thread _worker;
+    std::condition_variable _cv;
     atomic<bool> running{true};
     std::queue<int> _tasks;
     
