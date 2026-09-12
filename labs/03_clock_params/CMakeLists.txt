@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 
+add_executable(lab03_user user_homework/main.cpp)
+target_compile_features(lab03_user PRIVATE cxx_std_17)
+
 add_executable(lab03_stage1 stage1_basic/main.cpp)
 target_compile_features(lab03_stage1 PRIVATE cxx_std_17)
 
