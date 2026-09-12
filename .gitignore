@@ -8,6 +8,9 @@ cmake_install.cmake
 Makefile
 *.ninja*
 .ninja_*
+compile_commands.json
+CMakeUserPresets.json
+CMakePresets.json.user
 
 # Binary and object files
 *.exe
@@ -30,6 +33,33 @@ Makefile
 flight.csv
 attitude_response.png
 *.log
+*.csv
+*.ulg
+*.px4log
+*.bag
+*.png
+*.jpg
+*.jpeg
+*.svg
+
+# Python cache and local environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+ENV/
+
+# Local configuration and temporary files
+*.local
+*.user
+*.userprefs
+*.tmp
+*.temp
+*.bak
 
 # OS generated files
 .DS_Store
