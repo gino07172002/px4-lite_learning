@@ -1,5 +1,15 @@
 # PX4-Lite 仿作自研學習專案 (PX4-Lite Learning Monorepo)
 
+## PX4-Lite / PX4 SITL 模擬展示
+
+同一個網頁並排呈現 PX4-Lite 與 PX4 SITL 的飛行狀態、航線與即時遙測。下方為兩倍速預覽，點擊可開啟完整原速影片。
+
+[![PX4-Lite 與 PX4 SITL 雙機模擬展示（兩倍速）](docs/media/px4-lite-comparison.gif)](docs/media/px4-lite-comparison.mp4)
+
+[觀看完整影片（MP4，約 0.60 MB）](docs/media/px4-lite-comparison.mp4) · [展示素材與壓縮說明](docs/media/README.md)
+
+---
+
 本專案遵循真實 **PX4 Autopilot** 的架構思維與現代 C++17 規範，將大型無人機飛控系統拆解為 **8 大核心循序漸進實驗室（Lab 01 ～ Lab 08）**。
 每個 Lab 均具備：
 1. **完整規格說明文件 (`README.md`)**：闡明設計理念、PX4 核心模組對照、資料流與驗收標準。
