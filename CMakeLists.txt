@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(PX4_Lite_Learning VERSION 1.0.0 LANGUAGES CXX)
 
+include(CTest)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -24,3 +26,4 @@ add_subdirectory(labs/06_attitude_control)
 add_subdirectory(labs/07_commander)
 add_subdirectory(labs/08_runtime_tools)
 add_subdirectory(supplementary)
+add_subdirectory(simulator)

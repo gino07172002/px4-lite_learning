@@ -12,70 +12,12 @@
 #include <cmath>
 #include <cassert>
 
-struct MotorOutputs {
-    float m[4];
-};
+#include "control_allocator.hpp"
 
-// 1. 一般未消飽和的簡單線性混控器 (直覺做法)
-class NaiveMixer {
-public:
-    static MotorOutputs mix(float rollCmd, float pitchCmd, float yawCmd, float thrust) {
-        MotorOutputs out;
-        out.m[0] = thrust - rollCmd - pitchCmd - yawCmd; // M1 (右前)
-        out.m[1] = thrust + rollCmd + pitchCmd - yawCmd; // M2 (左後)
-        out.m[2] = thrust + rollCmd - pitchCmd + yawCmd; // M3 (左前)
-        out.m[3] = thrust - rollCmd + pitchCmd + yawCmd; // M4 (右後)
+using px4lite::supplementary::MotorOutputs;
+using px4lite::supplementary::NaiveMixer;
+using px4lite::supplementary::PX4ControlAllocator;
 
-        // 單純硬性截斷 [0, 1]
-        for (int i = 0; i < 4; ++i) {
-            out.m[i] = std::max(0.0f, std::min(1.0f, out.m[i]));
-        }
-        return out;
-    }
-};
-
-// 2. PX4 工業級優先級消飽和分配器 (PX4 Priority Desaturation)
-class PX4ControlAllocator {
-public:
-    static MotorOutputs allocate(float rollCmd, float pitchCmd, float yawCmd, float thrust) {
-        MotorOutputs out;
-        // 幾何分配矩陣 (Quad-X)
-        out.m[0] = thrust - rollCmd - pitchCmd - yawCmd;
-        out.m[1] = thrust + rollCmd + pitchCmd - yawCmd;
-        out.m[2] = thrust + rollCmd - pitchCmd + yawCmd;
-        out.m[3] = thrust - rollCmd + pitchCmd + yawCmd;
-
-        // 1. 尋找極值
-        float m_max = out.m[0];
-        float m_min = out.m[0];
-        for (int i = 1; i < 4; ++i) {
-            if (out.m[i] > m_max) m_max = out.m[i];
-            if (out.m[i] < m_min) m_min = out.m[i];
-        }
-
-        // 2. 優先級 1: 滾轉/俯仰優先 (Roll/Pitch Priority)
-        // 若達到上限天花板 (m_max > 1.0)，優先犧牲部分垂直推力，將整體油門向下拉回
-        if (m_max > 1.0f) {
-            float deltaThrust = m_max - 1.0f;
-            for (int i = 0; i < 4; ++i) {
-                out.m[i] -= deltaThrust;
-            }
-        }
-        // 若觸及下限地板 (m_min < 0.0)，集體上拉油門以保證糾偏力矩
-        else if (m_min < 0.0f) {
-            float deltaThrust = -m_min;
-            for (int i = 0; i < 4; ++i) {
-                out.m[i] += deltaThrust;
-            }
-        }
-
-        // 3. 再次截斷保底
-        for (int i = 0; i < 4; ++i) {
-            out.m[i] = std::max(0.0f, std::min(1.0f, out.m[i]));
-        }
-        return out;
-    }
-};
 
 int main() {
     std::cout << "=======================================================================\n";

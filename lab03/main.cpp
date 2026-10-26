@@ -1,89 +1,183 @@
-/**
- * @file main.cpp
- * @brief Lab 03: Clock Abstraction & Parameters (時間抽象與參數管理) - 開局範本
- * 
- * [Lab 03 核心任務目標]:
- * 1. 時間抽象 (Clock Abstraction):
- *    - 定義 IClock 介面 (nowUs())
- *    - 實作 RealtimeClock (實體機時鐘，依賴 std::chrono::steady_clock)
- *    - 實作 SimulationClock (SITL 模擬時鐘，可手動 advanceUs 步進，支援可重現模擬)
- * 
- * 2. 參數伺服器 (Parameter Manager):
- *    - 支援鍵值型態管理 (如 int, float, bool)
- *    - 邊界檢查 (Min / Max Clamping)
- *    - 參數變更通知機制 (對標 PX4 parameter_update)
- */
-
 #include <iostream>
-#include <chrono>
 #include <cstdint>
-#include <string>
-#include <memory>
-
-// ==========================================
-// 1. 時間抽象介面 (IClock)
-// ==========================================
-class IClock {
+#include <thread>
+#include <chrono>
+#include <unordered_map>
+#include <variant>
+#include <mutex>
+class Clock
+{
 public:
-    virtual ~IClock() = default;
     virtual uint64_t nowUs() const = 0;
+    virtual ~Clock() = default;
+
 };
-
-// 真實世界時鐘 (用於硬體執行緒與即時運行)
-class RealtimeClock : public IClock {
+class SimulationClock : public Clock
+{
 public:
-    RealtimeClock() : _epoch(std::chrono::steady_clock::now()) {}
+    SimulationClock() : currentTimeUs(0) {}
 
-    uint64_t nowUs() const override {
-        auto now = std::chrono::steady_clock::now();
-        return std::chrono::duration_cast<std::chrono::microseconds>(now - _epoch).count();
+    uint64_t nowUs() const override
+    {
+        return currentTimeUs;
     }
 
+    void advance(uint64_t us)
+    {
+        currentTimeUs += us;
+    }
+
+    private:
+    uint64_t currentTimeUs;
+};
+
+class RealtimeClock : public Clock
+{
+public:
+    RealtimeClock() :startTime(std::chrono::steady_clock::now()) {
+
+    }
+
+    uint64_t nowUs() const override
+    {
+        auto now =  std::chrono::steady_clock::now();
+
+        return std::chrono::duration_cast<std::chrono::microseconds>(now - startTime).count();
+    }
+
+
+    private:
+    std::chrono::steady_clock::time_point startTime;
+};
+class Timer
+{
+public:
+    Timer(Clock& clock):clock(clock), startTime(clock.nowUs()) {}
+    void reset()
+    {
+        startTime = clock.nowUs();
+    }
+    uint64_t elapsedUs() const
+    {
+        auto elapsed = clock.nowUs() - startTime;
+        return elapsed;
+    }
 private:
-    std::chrono::steady_clock::time_point _epoch;
-};
+    Clock& clock;
+    uint64_t startTime;
+    };
 
-// 模擬時鐘 (用於 SITL 軟體在環模擬與單元測試，時間確定性前進)
-class SimulationClock : public IClock {
-public:
-    explicit SimulationClock(uint64_t initialTimeUs = 0) : _currentTimeUs(initialTimeUs) {}
 
-    uint64_t nowUs() const override {
-        return _currentTimeUs;
-    }
+//3b
 
-    void advanceUs(uint64_t dtUs) {
-        _currentTimeUs += dtUs;
-    }
+using ParamValue =
+    std::variant<int32_t, float, bool>;
 
+class ParameterManager
+{
+    public :
+    template<typename T>
+void set(const std::string& name, T value)
+{
+    std::lock_guard<std::mutex> lock(mtx); // 確保線程安全
+    params[name] = value;
+    ++generation; // 更新參數版本
+}
+
+template<typename T>
+T get(const std::string& name) const
+{
+    std::lock_guard<std::mutex> lock(mtx); // 確保線程安全
+    // params.at(name) 在找不到 key 時會拋出 std::out_of_range
+    // std::get<T>(...) 在型別不符時會拋出 std::bad_variant_access
+    return std::get<T>(params.at(name));
+}
+uint32_t getGeneration() const
+{
+    std::lock_guard<std::mutex> lock(mtx); // 確保線程安全
+    return generation;
+}
 private:
-    uint64_t _currentTimeUs{0};
+    std::unordered_map<std::string, ParamValue> params;
+    mutable std::mutex mtx; // 用於保護 params 的互斥鎖
+    uint32_t generation = 0; // 用於追蹤參數的版本或更新次數
 };
 
-// ==========================================
-// 2. 參數管理器初階骨架 (TODO: 依需求擴充型別安全與邊界檢查)
-// ==========================================
-class ParameterManager {
-public:
-    ParameterManager() = default;
-    // 使用者可以在此實作 registerParam, get, set 等功能
-};
+int main()
+{
+     SimulationClock clock;
 
-int main() {
-    std::cout << "=========================================" << std::endl;
-    std::cout << " Hello Lab 03: Clock & Parameters!       " << std::endl;
-    std::cout << "=========================================" << std::endl;
 
-    // 1. 測試真實時鐘
-    RealtimeClock realClock;
-    std::cout << "[RealtimeClock] 當前時間: " << realClock.nowUs() << " us" << std::endl;
+     Timer timer1(clock);
 
-    // 2. 測試模擬時鐘
-    SimulationClock simClock(0);
-    std::cout << "[SimulationClock] 初始時間: " << simClock.nowUs() << " us" << std::endl;
-    simClock.advanceUs(4000); // 模擬步進 4ms (250Hz)
-    std::cout << "[SimulationClock] 前進 4ms 後時間: " << simClock.nowUs() << " us" << std::endl;
+   std::cout << timer1.elapsedUs() << '\n';
+  Timer timer3(clock);
+    clock.advance(4000);
+    std::cout << timer1.elapsedUs() << '\n';
 
-    std::cout << "\nLab 03 Hello World 開局成功，準備開始實作！" << std::endl;
+    clock.advance(4000);
+    std::cout << timer1.elapsedUs() << '\n';
+
+std::cout << timer3.elapsedUs() << '\n';
+
+    RealtimeClock clock2;
+    Timer timer2(clock2);
+    std::cout << timer2.elapsedUs() << '\n';
+
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    std::cout << timer2.elapsedUs() << '\n';
+
+    std::cout<<" ready to write new homework for clock interface "<<std::endl;
+
+
+    //3b
+    ParameterManager params;
+
+params.set<float>("MC_ROLL_P", 4.0f);
+params.set<int32_t>("SYS_ID", 1);
+params.set<bool>("SIM_ENABLE", true);
+
+float p = params.get<float>("MC_ROLL_P");
+std::cout << "MC_ROLL_P: " << p << std::endl;
+int32_t id = params.get<int32_t>("SYS_ID");
+std::cout << "SYS_ID: " << id << std::endl;
+bool sim = params.get<bool>("SIM_ENABLE");
+std::cout << "SIM_ENABLE: " << std::boolalpha << sim << std::endl;
+try
+{
+    bool nothing = params.get<bool>("NOTHING_ENABLE");
+}
+catch (const std::out_of_range& e)
+{
+    std::cout << "Parameter not found" << std::endl;
+}
+catch (const std::bad_variant_access& e)
+{
+    std::cout << "Parameter type mismatch" << std::endl;
+}
+
+
+params.set<int32_t>("COUNTER", 0);
+
+std::thread writer([&]()
+{
+    for (int i = 0; i < 100000; ++i)
+    {
+        params.set<int32_t>("COUNTER", i);
+    }
+});
+
+std::thread reader([&]()
+{
+    for (int i = 0; i < 100000; ++i)
+    {
+        auto value = params.get<int32_t>("COUNTER");
+    }
+});
+
+writer.join();
+reader.join();
+
+std::cout << params.get<int32_t>("COUNTER") << '\n';
     return 0;
 }

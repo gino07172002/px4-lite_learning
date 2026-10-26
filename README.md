@@ -6,7 +6,7 @@
 
 [![PX4-Lite 與 PX4 SITL 雙機模擬展示（兩倍速）](docs/media/px4-lite-comparison.gif)](docs/media/px4-lite-comparison.mp4)
 
-[觀看完整影片（MP4，約 0.60 MB）](docs/media/px4-lite-comparison.mp4) · [展示素材與壓縮說明](docs/media/README.md)
+[觀看完整影片（MP4，約 0.60 MB）](docs/media/px4-lite-comparison.mp4) · [模擬器啟動與操作說明](simulator/README.md) · [展示素材與壓縮說明](docs/media/README.md)
 
 ---
 

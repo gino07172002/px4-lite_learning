@@ -12,90 +12,12 @@
 #include <algorithm>
 #include <cassert>
 
-struct Vector3f {
-    float x{0.0f}, y{0.0f}, z{0.0f};
+#include "position_control.hpp"
 
-    Vector3f operator+(const Vector3f& o) const { return {x + o.x, y + o.y, z + o.z}; }
-    Vector3f operator-(const Vector3f& o) const { return {x - o.x, y - o.y, z - o.z}; }
-    Vector3f operator*(float s) const { return {x * s, y * s, z * s}; }
-    float norm() const { return std::sqrt(x * x + y * y + z * z); }
-};
+using px4lite::supplementary::AttitudeThrustSetpoint;
+using px4lite::supplementary::MulticopterPositionControl;
+using px4lite::supplementary::Vector3f;
 
-struct AttitudeThrustSetpoint {
-    float roll_deg;
-    float pitch_deg;
-    float yaw_deg;
-    float thrust_norm; // 0.0 ~ 1.0
-};
-
-class MulticopterPositionControl {
-public:
-    MulticopterPositionControl() = default;
-
-    AttitudeThrustSetpoint update(const Vector3f& posSp, const Vector3f& posActual,
-                                  const Vector3f& velActual, float dt) {
-        // 1. 位置外環 P 控制器 (Position Error -> Velocity Setpoint)
-        Vector3f posErr = posSp - posActual;
-        Vector3f velSp;
-        velSp.x = std::max(-_maxHorizVel, std::min(_maxHorizVel, _posP * posErr.x));
-        velSp.y = std::max(-_maxHorizVel, std::min(_maxHorizVel, _posP * posErr.y));
-        velSp.z = std::max(-_maxVerticalVel, std::min(_maxVerticalVel, _posP_z * posErr.z));
-
-        // 2. 速度內環 PID 控制器 (Velocity Error -> Desired Acceleration)
-        Vector3f velErr = velSp - velActual;
-        _velInt = _velInt + velErr * dt;
-        // 積分限幅
-        _velInt.x = std::max(-2.0f, std::min(2.0f, _velInt.x));
-        _velInt.y = std::max(-2.0f, std::min(2.0f, _velInt.y));
-        _velInt.z = std::max(-2.0f, std::min(2.0f, _velInt.z));
-
-        Vector3f a_des;
-        a_des.x = _velP * velErr.x + _velI * _velInt.x;
-        a_des.y = _velP * velErr.y + _velI * _velInt.y;
-        // Z 軸需加入抵消重力的 +g 項 (以向上為正的座標系)
-        a_des.z = _velP_z * velErr.z + _velI_z * _velInt.z + _gravity;
-
-        // 3. 幾何投影解算機身姿態與推力 (Geometric Attitude & Thrust Setpoint)
-        // 水平加速度限制 (避免傾角過大造成失速翻機)
-        float maxTiltRad = 35.0f * (3.14159265f / 180.0f);
-        float a_horiz = std::sqrt(a_des.x * a_des.x + a_des.y * a_des.y);
-        float max_a_horiz = _gravity * std::tan(maxTiltRad);
-        if (a_horiz > max_a_horiz) {
-            float scale = max_a_horiz / a_horiz;
-            a_des.x *= scale;
-            a_des.y *= scale;
-        }
-
-        // 解算 Roll 與 Pitch (單位: 度)
-        // 往前加速 (+X) 需要機頭下壓 (負 Pitch)
-        // 往右加速 (+Y) 需要機身右傾 (正 Roll)
-        constexpr float RAD2DEG = 180.0f / 3.14159265f;
-        float pitch_sp = -std::atan2(a_des.x, a_des.z) * RAD2DEG;
-        float roll_sp  =  std::atan2(a_des.y, a_des.z) * RAD2DEG;
-
-        // 計算正規化推力: 總期望力 / 最大推力
-        float totalAccel = a_des.norm();
-        float hoverThrustNorm = 0.50f; // 懸停推力約 50%
-        float thrust_norm = hoverThrustNorm * (totalAccel / _gravity);
-        thrust_norm = std::max(0.1f, std::min(0.95f, thrust_norm));
-
-        return {roll_sp, pitch_sp, 0.0f, thrust_norm};
-    }
-
-private:
-    float _gravity{9.81f};
-    float _posP{1.0f};
-    float _posP_z{1.2f};
-    float _velP{1.8f};
-    float _velI{0.15f};
-    float _velP_z{2.5f};
-    float _velI_z{0.3f};
-
-    float _maxHorizVel{5.0f};   // 最大水平速度 5 m/s
-    float _maxVerticalVel{2.5f}; // 最大垂直速度 2.5 m/s
-
-    Vector3f _velInt{0, 0, 0};
-};
 
 int main() {
     std::cout << "=======================================================================\n";

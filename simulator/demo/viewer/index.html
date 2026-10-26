@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PX4 Flight Lab — Simulation Bench</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b1014; --panel:#111a20; --line:#27363e; --muted:#81919a; --text:#e6eef0; --cyan:#55d6c2; --amber:#ffbd69; --red:#ff7068; }
+    * { box-sizing:border-box }
+    body { margin:0; background:radial-gradient(ellipse at 50% -30%,#1e3035 0%,var(--bg) 55%); color:var(--text); font:14px/1.45 "Segoe UI",system-ui,sans-serif; min-height:100vh }
+    button { color:inherit; font:inherit; cursor:pointer }
+    .shell { max-width:1600px; margin:auto; padding:22px clamp(14px,2vw,34px) 30px }
+    header { display:flex; align-items:center; justify-content:space-between; gap:20px; padding-bottom:19px; border-bottom:1px solid var(--line) }
+    .brand { display:flex; align-items:center; gap:13px }
+    .mark { width:38px; height:38px; border:1px solid #42616a; border-radius:11px; display:grid; place-items:center; color:var(--cyan); background:#132328; font-weight:800; letter-spacing:-2px }
+    .eyebrow { color:var(--cyan); text-transform:uppercase; font:700 10px/1.2 ui-monospace,Consolas,monospace; letter-spacing:.18em }
+    h1 { margin:3px 0 0; font-size:19px; letter-spacing:.01em }
+    .live-clock { display:flex; align-items:center; gap:9px; color:var(--muted); font:12px ui-monospace,Consolas,monospace }
+    .pulse { width:8px; height:8px; border-radius:50%; background:var(--cyan); box-shadow:0 0 12px #55d6c288 }
+    .intro { display:flex; justify-content:space-between; align-items:end; gap:20px; padding:22px 0 15px }
+    .intro h2 { margin:0 0 5px; font-size:22px; font-weight:600 }
+    .intro p { color:#9aabb2; margin:0; max-width:740px }
+    .global-state { color:var(--muted); text-align:right; font:11px ui-monospace,Consolas,monospace }
+    .global-state strong { color:var(--text); font-size:13px; display:block; margin-top:4px }
+    .toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:11px 12px; margin:5px 0 14px; background:#0e171c; border:1px solid var(--line); border-radius:12px }
+    .toolbar .hint { margin-left:auto; color:var(--muted); font-size:12px }
+    .toolbar .hint.error { color:var(--red) }
+    .btn { border:1px solid #34464f; border-radius:7px; background:#17232a; padding:8px 13px; font-size:12px; transition:.15s ease }
+    .btn:hover { background:#22343c; border-color:#58717b }
+    .btn.primary { color:#061411; background:var(--cyan); border-color:var(--cyan); font-weight:700 }
+    .btn.primary:hover { background:#7be8d5 }
+    .btn.sync { color:#241707; background:var(--amber); border-color:var(--amber); font-weight:750 }
+    .btn.sync:hover { background:#ffd08c }
+    .btn:disabled { opacity:.58; cursor:wait }
+    .btn.stop { color:#ffc3bd }
+    .layout { display:grid; grid-template-columns:1fr 1fr; gap:14px }
+    .vehicle { background:linear-gradient(145deg,#121d23,#0e161b); border:1px solid var(--line); border-radius:13px; overflow:hidden; min-width:0 }
+    .vehicle-head { display:flex; align-items:center; justify-content:space-between; gap:15px; padding:14px 16px 11px }
+    .vehicle-title { display:flex; align-items:center; gap:10px }
+    .vehicle-title h3 { margin:0; font-size:15px; font-weight:650 }
+    .vehicle-title p { margin:2px 0 0; color:var(--muted); font-size:11px }
+    .vehicle-icon { width:30px; height:30px; border-radius:8px; display:grid; place-items:center; font-size:16px; background:#15302d; color:var(--cyan) }
+    .px4 .vehicle-icon { background:#34291c; color:var(--amber) }
+    .badge { display:flex; align-items:center; gap:7px; color:var(--muted); border:1px solid #2b3940; border-radius:30px; padding:5px 9px; font:10px ui-monospace,Consolas,monospace; white-space:nowrap }
+    .badge i { width:6px; height:6px; border-radius:50%; background:#63717a }
+    .badge.connected { color:#b9f2e8; border-color:#27574f }
+    .badge.connected i { background:var(--cyan); box-shadow:0 0 8px #55d6c2aa }
+    .scene { position:relative; height:clamp(280px,31vw,410px); border-top:1px solid #202d33; border-bottom:1px solid #202d33; background:linear-gradient(#101b21 0%,#0d171b 63%,#0d1519 63%) }
+    canvas { display:block; width:100%; height:100% }
+    .scene-label { position:absolute; left:14px; top:11px; pointer-events:none; color:#6e818a; font:9px ui-monospace,Consolas,monospace; letter-spacing:.13em }
+    .scene-alt { position:absolute; right:13px; top:10px; text-align:right; color:var(--muted); font:10px ui-monospace,Consolas,monospace; pointer-events:none }
+    .scene-alt b { display:block; color:var(--text); font-size:17px; font-weight:500 }
+    .metrics { display:grid; grid-template-columns:repeat(4,1fr); padding:12px 14px 13px }
+    .metric { padding:0 9px; border-right:1px solid #26343a; min-width:0 }
+    .metric:first-child { padding-left:2px }
+    .metric:last-child { border:0 }
+    .metric label { display:block; color:var(--muted); font:9px ui-monospace,Consolas,monospace; letter-spacing:.08em; text-transform:uppercase; white-space:nowrap }
+    .metric strong { display:block; margin-top:5px; font:16px ui-monospace,Consolas,monospace; font-weight:500; white-space:nowrap }
+    .metric small { color:var(--muted); font-size:10px }
+    .telemetry { display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px 15px; border-top:1px solid #202d33; padding:9px 15px; color:var(--muted); font:10px ui-monospace,Consolas,monospace }
+    .telemetry b { color:#c2d0d4; font-weight:500 }
+    .motors { display:flex; gap:6px; align-items:center }
+    .motor { display:flex; align-items:center; gap:3px }
+    .bar { width:31px; height:4px; background:#28363b; border-radius:4px; overflow:hidden }
+    .bar i { display:block; height:100%; width:0; background:var(--cyan); transition:width .2s }
+    .px4 .bar i { background:var(--amber) }
+    .lower { display:grid; grid-template-columns:1.15fr .85fr; gap:14px; margin-top:14px }
+    .card { background:#10191e; border:1px solid var(--line); border-radius:12px; padding:14px 16px }
+    .card h3 { margin:0 0 11px; font-size:12px; color:#cbd7da; font-weight:600; letter-spacing:.04em }
+    .flow { display:flex; align-items:center; justify-content:space-between; gap:6px; color:#a6b5ba; font:10px ui-monospace,Consolas,monospace }
+    .flow span { text-align:center; flex:1; border:1px solid #293941; background:#142027; border-radius:6px; padding:8px 5px }
+    .flow span:first-child { border-color:#286056; color:#9beada }
+    .flow span:last-child { border-color:#66502f; color:#ffcf91 }
+    .flow em { color:#53666e; font-style:normal }
+    .practice { color:#9aabb2; font-size:11px; margin:9px 0 0 }
+    .practice code { color:#d1e3e5; font:10px ui-monospace,Consolas,monospace }
+    .route { display:flex; align-items:center; justify-content:space-between; color:var(--muted); font:10px ui-monospace,Consolas,monospace; gap:8px }
+    .route b { color:#dbe6e8; font-weight:500 }
+    .route-path { color:#41545d; font-size:16px }
+    .notice { color:#899ba2; font-size:10px; margin-top:11px }
+    @media(max-width:900px) { .layout { grid-template-columns:1fr } .scene { height:350px } }
+    @media(max-width:600px) { .shell { padding:14px 10px 20px } header { align-items:flex-start } .live-clock { display:none } .intro { display:block } .global-state { text-align:left; margin-top:9px } .toolbar .hint { width:100%; margin:4px 0 0 } .metrics { grid-template-columns:repeat(2,1fr); row-gap:14px } .metric:nth-child(2) { border:0 } .lower { grid-template-columns:1fr } .flow { font-size:8px } .scene { height:300px } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div class="brand"><div class="mark">PX</div><div><div class="eyebrow">PX4 Learning · Flight Test</div><h1>Simulation Bench</h1></div></div>
+      <div class="live-clock"><span class="pulse"></span><span>LOCAL TELEMETRY</span><span id="clock">--:--:--</span></div>
+    </header>
+    <section class="intro">
+      <div><h2>同一航線，兩套飛控</h2><p>左側是 Lab 控制鏈驅動的 PX4-Lite 固定步進模擬器；右側顯示 PX4 SITL 經 Gazebo 飛行的即時 MAVLink 狀態。</p></div>
+      <div class="global-state">SIMULATION / NED<strong>North · East · Down</strong></div>
+    </section>
+    <div class="toolbar">
+      <button class="btn primary" id="prepare">① 啟動模擬環境</button>
+      <button class="btn sync" id="start-both" disabled>② 同步起飛</button>
+      <span class="hint" id="message" aria-live="polite">先啟動背景程式，兩邊就緒後再按同步起飛</span>
+    </div>
+    <section class="layout">
+      <article class="vehicle lite">
+        <div class="vehicle-head"><div class="vehicle-title"><div class="vehicle-icon">◈</div><div><h3>PX4-Lite</h3><p>C++17 · SimpleQuadSimulator · Lab controllers</p></div></div><div class="badge" id="lite-badge"><i></i><span>WAITING</span></div></div>
+        <div class="scene"><canvas id="lite-scene" aria-label="PX4-Lite three-dimensional flight view"></canvas><div class="scene-label">LOCAL NED · ISOMETRIC VIEW</div><div class="scene-alt"><span>ALTITUDE</span><b id="lite-alt">— m</b></div></div>
+        <div class="metrics">
+          <div class="metric"><label>Altitude</label><strong id="lite-alt-m">—</strong><small>above home</small></div>
+          <div class="metric"><label>Ground speed</label><strong id="lite-speed">—</strong><small>m/s</small></div>
+          <div class="metric"><label>Flight mode</label><strong id="lite-mode">—</strong><small id="lite-target">no target</small></div>
+          <div class="metric"><label>Sim time</label><strong id="lite-time">—</strong><small>250 Hz fixed dt</small></div>
+        </div>
+        <div class="telemetry"><span>N <b id="lite-n">—</b> · E <b id="lite-e">—</b> · D <b id="lite-d">—</b> m</span><span>ATT <b id="lite-att">—</b></span><span class="motors" id="lite-motors"></span></div>
+      </article>
+      <article class="vehicle px4">
+        <div class="vehicle-head"><div class="vehicle-title"><div class="vehicle-icon">✦</div><div><h3>PX4 SITL</h3><p>PX4 v1.18 · Gazebo Harmonic · MAVLink</p></div></div><div class="badge" id="px4-badge"><i></i><span>NO TELEMETRY</span></div></div>
+        <div class="scene"><canvas id="px4-scene" aria-label="PX4 SITL three-dimensional flight view"></canvas><div class="scene-label">LOCAL NED · MAVLINK POSITION</div><div class="scene-alt"><span>ALTITUDE</span><b id="px4-alt">— m</b></div></div>
+        <div class="metrics">
+          <div class="metric"><label>Altitude</label><strong id="px4-alt-m">—</strong><small>above home</small></div>
+          <div class="metric"><label>Ground speed</label><strong id="px4-speed">—</strong><small>m/s</small></div>
+          <div class="metric"><label>Flight mode</label><strong id="px4-mode">—</strong><small id="px4-target">Offboard mission</small></div>
+          <div class="metric"><label>Data age</label><strong id="px4-time">—</strong><small>UDP telemetry</small></div>
+        </div>
+        <div class="telemetry"><span>N <b id="px4-n">—</b> · E <b id="px4-e">—</b> · D <b id="px4-d">—</b> m</span><span>ATT <b id="px4-att">—</b></span><span>Motors <b>PX4 internal</b></span></div>
+      </article>
+    </section>
+    <section class="lower">
+      <article class="card"><h3>控制與模擬資料路徑</h3><div class="flow"><span>Lab 位置控制</span><em>→</em><span>Lab 姿態 / 配置器</span><em>→</em><span>4 motors</span><em>→</em><span>SimpleQuadSimulator</span></div><p class="practice">練習接點保留在 <code>IQuadSimulator</code>：可自行將 Lab Pub/Sub 與 WorkQueue 接入，或實作 Gazebo adapter；目前演示不代替這些 Lab。</p></article>
+      <article class="card"><h3>雙機演示 · 兩步操作</h3><div class="route"><span>① 啟動模擬環境</span><span class="route-path">→</span><b>兩邊地面待命</b><span class="route-path">→</span><span>② 同步起飛</span></div><p class="notice">啟動環境會開啟 PX4／Gazebo 與 Lite 背景程式，保持未解鎖。等待兩邊就緒後才可同步起飛；降落後可直接重飛。QGC 不需要開啟。</p></article>
+    </section>
+  </main>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const scenes = [
+      { canvas:$('lite-scene'), color:'#55d6c2', trail:'#55d6c2', state:null },
+      { canvas:$('px4-scene'), color:'#ffbd69', trail:'#ffbd69', state:null },
+    ];
+    const num = (v, d=2) => Number.isFinite(Number(v)) ? Number(v).toFixed(d) : '—';
+    const vec = (obj) => obj || {x:0,y:0,z:0};
+    function projection(n,e,u, cx,cy,scale) {
+      return [cx + (n+e)*scale*.68, cy + (e-n)*scale*.28 - u*scale*.83];
+    }
+    function bodyToWorld(p, a) {
+      const r=a?.roll||0, q=a?.pitch||0, y=a?.yaw||0;
+      const cr=Math.cos(r), sr=Math.sin(r), cp=Math.cos(q), sp=Math.sin(q), cy=Math.cos(y), sy=Math.sin(y);
+      // Body FRD to local NED, then flip down to altitude-up for drawing.
+      const n=cy*cp*p[0] + (cy*sp*sr-sy*cr)*p[1] + (cy*sp*cr+sy*sr)*p[2];
+      const e=sy*cp*p[0] + (sy*sp*sr+cy*cr)*p[1] + (sy*sp*cr-cy*sr)*p[2];
+      const d=-sp*p[0] + cp*sr*p[1] + cp*cr*p[2];
+      return [n,e,-d];
+    }
+    function drawDrone(ctx, state, cx, cy, scale, color) {
+      if (!state) return;
+      const p=vec(state.position_ned_m), a=state.attitude_rad||{};
+      const altitude=-(p.z||0), center=projection(p.x||0,p.y||0,altitude,cx,cy,scale);
+      const arm=.56, z=.05;
+      const points=[[-arm,0,z],[0,-arm,z],[0,arm,z],[arm,0,z]].map(q=>{
+        const w=bodyToWorld(q,a); return projection((p.x||0)+w[0],(p.y||0)+w[1],altitude+w[2],cx,cy,scale);
+      });
+      ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle=color; ctx.fillStyle=color;
+      ctx.shadowColor=color; ctx.shadowBlur=13; ctx.lineWidth=4;
+      [[0,1],[0,2],[3,1],[3,2]].forEach(([i,j])=>{ctx.beginPath();ctx.moveTo(...points[i]);ctx.lineTo(...points[j]);ctx.stroke()});
+      ctx.shadowBlur=4; points.forEach((v,i)=>{ctx.beginPath();ctx.arc(v[0],v[1],i===0||i===3?5:4,0,Math.PI*2);ctx.fill()});
+      ctx.beginPath();ctx.arc(center[0],center[1],5,0,Math.PI*2);ctx.fillStyle='#f0f6f4';ctx.fill();
+      ctx.restore();
+    }
+    function drawScene(scene) {
+      const c=scene.canvas, rect=c.getBoundingClientRect(), ratio=window.devicePixelRatio||1;
+      if (!rect.width||!rect.height) return;
+      if(c.width!==Math.round(rect.width*ratio)||c.height!==Math.round(rect.height*ratio)){c.width=Math.round(rect.width*ratio);c.height=Math.round(rect.height*ratio)}
+      const ctx=c.getContext('2d');ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,rect.width,rect.height);
+      const w=rect.width,h=rect.height,cx=w*.5,cy=h*.69,scale=Math.min(w/13,h/7.2);
+      // Ground grid in the north/east plane, with a brighter home cross.
+      for(let i=-2;i<=8;i++){
+        const a=projection(i,-2,0,cx,cy,scale),b=projection(i,8,0,cx,cy,scale);
+        const d=projection(-2,i,0,cx,cy,scale),e=projection(8,i,0,cx,cy,scale);
+        ctx.beginPath();ctx.moveTo(...a);ctx.lineTo(...b);ctx.moveTo(...d);ctx.lineTo(...e);
+        ctx.strokeStyle=i===0?'#34534f':'#213139';ctx.lineWidth=i===0?1.1:.7;ctx.stroke();
+      }
+      const home=projection(0,0,0,cx,cy,scale);ctx.fillStyle='#70848b';ctx.font='10px ui-monospace,monospace';ctx.fillText('HOME',home[0]+7,home[1]+14);
+      // Mission square: hover, north, north-east, east, home.
+      const route=[[0,0,2.5],[0,0,2.5],[4,0,2.5],[4,4,2.5],[0,4,2.5],[0,0,2.5]].map(q=>projection(q[0],q[1],q[2],cx,cy,scale));
+      ctx.beginPath();route.forEach((q,i)=>i?ctx.lineTo(...q):ctx.moveTo(...q));ctx.setLineDash([4,5]);ctx.strokeStyle=scene.color+'88';ctx.lineWidth=1.2;ctx.stroke();ctx.setLineDash([]);
+      const s=scene.state;
+      if(s){const p=vec(s.position_ned_m),foot=projection(p.x||0,p.y||0,0,cx,cy,scale),top=projection(p.x||0,p.y||0,-(p.z||0),cx,cy,scale);
+        ctx.beginPath();ctx.moveTo(...foot);ctx.lineTo(...top);ctx.strokeStyle=scene.color+'77';ctx.lineWidth=1;ctx.stroke();
+        ctx.beginPath();ctx.ellipse(foot[0],foot[1],9,4,-.25,0,Math.PI*2);ctx.fillStyle='#070c0f99';ctx.fill();
+        drawDrone(ctx,s,cx,cy,scale,scene.color);
+      }
+    }
+    function setBadge(prefix,connected,label){const b=$(prefix+'-badge');b.classList.toggle('connected',connected);b.querySelector('span').textContent=label}
+    function setMotors(values){const root=$('lite-motors');if(!Array.isArray(values))return;root.innerHTML=values.map((v,i)=>`<span class="motor">M${i+1}<span class="bar"><i style="width:${Math.max(0,Math.min(1,Number(v)||0))*100}%"></i></span></span>`).join('')}
+    function render(prefix,state,connected,age){
+      const v=state||{},p=vec(v.position_ned_m),vel=vec(v.velocity_ned_mps),a=v.attitude_rad||{};
+      const alt=-(Number(p.z)||0),speed=Math.hypot(Number(vel.x)||0,Number(vel.y)||0,Number(vel.z)||0);
+      $(prefix+'-alt').textContent=connected?`${num(alt)} m`:'— m';
+      $(prefix+'-alt-m').textContent=connected?num(alt):'—';$(prefix+'-speed').textContent=connected?num(speed):'—';
+      $(prefix+'-mode').textContent=connected?(v.mode||'CONNECTED'):'—';$(prefix+'-target').textContent=connected?(v.target||'telemetry active'):'no target';
+      $(prefix+'-time').textContent=connected?(prefix==='lite'?`${num(v.sim_time_s,1)} s`:`${num(age,1)} s`):'—';
+      $(prefix+'-n').textContent=connected?num(p.x):'—';$(prefix+'-e').textContent=connected?num(p.y):'—';$(prefix+'-d').textContent=connected?num(p.z):'—';
+      $(prefix+'-att').textContent=connected?`${num((a.roll||0)*57.2958,0)}° / ${num((a.pitch||0)*57.2958,0)}° / ${num((a.yaw||0)*57.2958,0)}°`:'—';
+      setBadge(prefix,connected,connected?(v.armed?'ARMED':(v.mode||'LIVE').toUpperCase()):prefix==='lite'?'WAITING':'NO TELEMETRY');
+      const scene=scenes[prefix==='lite'?0:1];scene.state=connected?v:null;drawScene(scene);
+      if(prefix==='lite'&&connected)setMotors(v.motors);
+    }
+    async function poll(){try{const r=await fetch('/api/state',{cache:'no-store'}),data=await r.json();
+      render('lite',data.lite.state,data.lite.connected,data.lite.age_s);render('px4',data.px4.state,data.px4.connected,data.px4.age_s);
+      const launch=data.combined_start||{status:'idle',message:''};
+      $('message').classList.toggle('error',launch.status==='failed');
+      const busy=['checking_px4','starting_px4','waiting_px4','starting_lite','running'].includes(launch.status);
+      $('prepare').disabled=busy || Boolean(launch.can_takeoff);
+      $('start-both').disabled=!launch.can_takeoff;
+      $('prepare').textContent=['checking_px4','starting_px4','waiting_px4'].includes(launch.status)?'① 環境啟動中…':'① 啟動模擬環境';
+      $('start-both').textContent=launch.status==='running'?'② 雙機飛行中…':'② 同步起飛';
+      if(launch.status!=='idle')$('message').textContent=launch.message;
+      else if(data.lite_process_running)$('message').textContent='PX4-Lite 正在執行固定 250 Hz 飛行任務';
+      else if(data.lite_exit_code!==null)$('message').textContent=`Lite 任務結束 (exit ${data.lite_exit_code}) · 可重飛`;
+    }catch(e){$('message').textContent='無法連線到本機 dashboard server'} }
+    async function requestAction(url){try{const r=await fetch(url,{method:'POST'});const d=await r.json();$('message').textContent=d.message;await poll()}catch(e){$('message').textContent='指令送出失敗：請確認 dashboard server 正在執行';$('message').classList.add('error')}}
+    $('prepare').onclick=()=>{$('prepare').disabled=true;$('message').textContent='正在啟動模擬環境…';requestAction('/api/environment/start')};
+    $('start-both').onclick=()=>{$('start-both').disabled=true;$('message').textContent='正在送出同步起飛指令…';requestAction('/api/both/start')};
+    window.addEventListener('resize',()=>scenes.forEach(drawScene));
+    setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('en-GB',{hour12:false})},500);setInterval(poll,250);poll();
+  </script>
+</body>
+</html>
